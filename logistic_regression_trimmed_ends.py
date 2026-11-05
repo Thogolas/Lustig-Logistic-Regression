@@ -1,12 +1,27 @@
+import os
+import tarfile
 import pandas as pd
 from sklearn.linear_model import LogisticRegression
-from sklearn.metrics import roc_auc_score
+from sklearn.metrics import roc_auc_score, confusion_matrix
 from sklearn.model_selection import train_test_split
 
+PISCES_TAR = ""  # set to .tar path to filter by PISCES, leave empty to use full dataset
+
 # Load data
-df = pd.read_csv("/Users/patrickmincher/Desktop/LUSTIG SPSS/Generate_E6_E20_VKBAT/merged.csv")
-entropy = pd.read_csv("/Users/patrickmincher/Desktop/LUSTIG SPSS/Generate_E6_E20_VKBAT/entropy_rewrite/blast_results/checkpoint.csv")
-df = df.merge(entropy, on=["Protein", "Chain", "No.", "Res"], how="inner")
+df = pd.read_csv("/Users/patrickmincher/Desktop/LUSTIG SPSS/Generate_E6_E20_VKBAT/merged_complete.csv")
+
+if PISCES_TAR:
+    with tarfile.open(PISCES_TAR) as tar:
+        members = [m for m in tar.getmembers() if not m.name.endswith(('.fasta', '.log', '.pc.gz')) and m.isfile() and '/' not in m.name]
+        f = tar.extractfile(members[0])
+        lines = f.read().decode().strip().split('\n')
+    pisces_chains = []
+    for line in lines[1:]:
+        pdbchain = line.split()[0].strip()
+        pisces_chains.append((pdbchain[:-1], pdbchain[-1]))
+    pisces_df = pd.DataFrame(pisces_chains, columns=['Protein', 'Chain'])
+    df = df.merge(pisces_df, on=['Protein', 'Chain'], how='inner')
+    print(f"PISCES filter: {len(pisces_chains)} chains, {df[['Protein','Chain']].drop_duplicates().shape[0]} matched")
 
 # Trim disordered ends using isUnstruct
 THRESHOLD = 0.9
@@ -73,3 +88,11 @@ print(f"\nAUC: {auc}")
 
 for name, coef in zip(feature_cols, model.coef_[0]):
     print(f"    {name}: {coef:.4f}")
+
+y_pred = model.predict(X_test)
+tn, fp, fn, tp = confusion_matrix(y_test, y_pred).ravel()
+print(f"\nConfusion Matrix:")
+print(f"    True Positives  (switch predicted switch):     {tp}")
+print(f"    True Negatives  (non-switch predicted non-switch): {tn}")
+print(f"    False Positives (non-switch predicted switch): {fp}")
+print(f"    False Negatives (switch predicted non-switch): {fn}")
