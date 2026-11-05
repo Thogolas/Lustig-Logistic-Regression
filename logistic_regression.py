@@ -7,7 +7,7 @@ from sklearn.model_selection import train_test_split
 
 PISCES_TAR = ""  # set to .tar path to filter by PISCES, leave empty to use full dataset
 
-df = pd.read_csv("/Users/patrickmincher/Desktop/LUSTIG SPSS/Generate_E6_E20_VKBAT/merged_complete.csv")
+df = pd.read_csv("merged_complete.csv") #You need to add the location of your file
 
 if PISCES_TAR:
     with tarfile.open(PISCES_TAR) as tar:
